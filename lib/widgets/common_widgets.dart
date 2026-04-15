@@ -5,6 +5,88 @@ import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../features/auth/providers/auth_provider.dart';
+import '../features/common/providers/profile_photo_provider.dart';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PROFILE PHOTO ACTIONS HELPER
+// ─────────────────────────────────────────────────────────────────────────────
+class ProfilePhotoActions {
+  static void showOptions({
+    required BuildContext context,
+    required WidgetRef ref,
+    required String? currentImageUrl,
+    String? targetUserId, // Optional, defaults to current user
+  }) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Profile Photo', style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 16)),
+              const SizedBox(height: 20),
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(color: const Color(0xFF0284C7).withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+                  child: const Icon(Icons.photo_library_rounded, color: Color(0xFF0284C7), size: 20),
+                ),
+                title: Text('Upload New Photo', style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 14)),
+                onTap: () {
+                  Navigator.pop(context);
+                  if (targetUserId != null) {
+                    ref.read(profilePhotoProvider.notifier).uploadForUser(targetUserId);
+                  } else {
+                    ref.read(profilePhotoProvider.notifier).pickAndUploadImage();
+                  }
+                },
+              ),
+              if (currentImageUrl != null && currentImageUrl.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(color: Colors.red.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+                    child: const Icon(Icons.delete_outline_rounded, color: Colors.red, size: 20),
+                  ),
+                  title: Text('Remove Photo', style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 14, color: Colors.red)),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _confirmDelete(context: context, ref: ref, targetUserId: targetUserId);
+                  },
+                ),
+              ],
+              const SizedBox(height: 12),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  static void _confirmDelete({required BuildContext context, required WidgetRef ref, String? targetUserId}) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Remove Photo?'),
+        content: const Text('Are you sure you want to remove this profile photo?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              ref.read(profilePhotoProvider.notifier).deletePhoto(targetUserId);
+            },
+            child: const Text('Remove', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // LOADING SHIMMER
@@ -33,10 +115,10 @@ class ShimmerCard extends StatelessWidget {
   const ShimmerCard({super.key});
   @override
   Widget build(BuildContext context) {
-    return Card(
+    return const Card(
       child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: const [
+        padding: EdgeInsets.all(16),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           ShimmerBox(height: 16, width: 160), SizedBox(height: 10),
           ShimmerBox(height: 12), SizedBox(height: 6),
           ShimmerBox(height: 12, width: 240),
@@ -176,11 +258,11 @@ class RoleBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (label, color) = switch (role) {
-      'admin'   => ('Admin',   const Color(0xFF7C3AED)),
-      'tutor'   => ('Tutor',   const Color(0xFF0891B2)),
-      'student' => ('Student', const Color(0xFF059669)),
-      'staff'   => ('Staff',   const Color(0xFFF59E0B)),
-      _         => ('User',    const Color(0xFF64748B)),
+      'admin'   => ('Admin',   const Color(0xFF0284C7)),
+      'tutor'   => ('Tutor',   const Color(0xFF0284C7)),
+      'student' => ('Student', const Color(0xFF0284C7)),
+      'staff'   => ('Staff',   const Color(0xFF0284C7)),
+      _         => ('User',    const Color(0xFF0284C7)),
     };
 
     return Container(
@@ -247,8 +329,16 @@ class AppDrawer extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final user  = ref.watch(currentUserProvider);
-    final theme = Theme.of(context);
+    final user = ref.watch(currentUserProvider);
+
+    // Role-based gradient matching each dashboard's identity
+    final (gradStart, gradEnd, accentColor) = switch (user?.role) {
+      'admin'   => (const Color(0xFF0369A1), const Color(0xFF0891B2), const Color(0xFF0284C7)),
+      'tutor'   => (const Color(0xFF0369A1), const Color(0xFF0891B2), const Color(0xFF0284C7)),
+      'student' => (const Color(0xFF0369A1), const Color(0xFF0891B2), const Color(0xFF0284C7)),
+      'staff'   => (const Color(0xFF0369A1), const Color(0xFF0891B2), const Color(0xFF0284C7)),
+      _         => (const Color(0xFF0369A1), const Color(0xFF0891B2), const Color(0xFF0284C7)),
+    };
 
     return Drawer(
       child: Column(
@@ -257,10 +347,10 @@ class AppDrawer extends ConsumerWidget {
           Container(
             width: double.infinity,
             padding: EdgeInsets.fromLTRB(20, MediaQuery.paddingOf(context).top + 24, 20, 24),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topLeft, end: Alignment.bottomRight,
-                colors: [Color(0xFF4F46E5), Color(0xFF7C3AED)],
+                colors: [gradStart, gradEnd],
               ),
             ),
             child: Column(
@@ -273,7 +363,7 @@ class AppDrawer extends ConsumerWidget {
                       ? CachedNetworkImageProvider(user.avatarUrl!)
                       : null,
                   child: user?.avatarUrl == null || user!.avatarUrl!.isEmpty
-                      ? Text(user?.name?[0].toUpperCase() ?? "U",
+                      ? Text(user?.name[0].toUpperCase() ?? "U",
                           style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white))
                       : null,
                 ),
@@ -297,25 +387,62 @@ class AppDrawer extends ConsumerWidget {
                 _DrawerItem(
                   icon: Icons.dashboard_rounded,
                   title: 'Dashboard',
+                  color: accentColor,
                   onTap: () {
                     context.pop();
                     final role = user?.role;
-                    if (role == 'admin') context.go('/admin');
-                    else if (role == 'tutor') context.go('/tutor');
+                    if (role == 'admin') {
+                      context.go('/admin');
+                    } else if (role == 'tutor') context.go('/tutor');
                     else if (role == 'student') context.go('/student');
                     else if (role == 'staff') context.go('/staff');
                   },
                 ),
-                if (user?.role == 'student' || user?.role == 'tutor')
+                if (user?.role == 'student' || user?.role == 'tutor' || user?.role == 'staff')
                   _DrawerItem(
                     icon: Icons.person_rounded,
                     title: 'My Profile',
+                    color: accentColor,
                     onTap: () {
                       context.pop();
-                      if (user?.role == 'student') context.push('/student/profile');
-                      else context.push('/tutor/profile');
+                      if (user?.role == 'student') {
+                        context.push('/student/profile');
+                      } else if (user?.role == 'tutor') {
+                        context.push('/tutor/profile');
+                      } else if (user?.role == 'staff') {
+                        context.push('/staff/profile');
+                      }
                     },
                   ),
+                
+                // -- Admin & Staff Quick Links --
+                if (user?.role == 'admin' || user?.role == 'staff') ...[
+                  _DrawerItem(icon: Icons.people_alt_rounded, title: 'Manage Students', color: accentColor, onTap: () { context.pop(); context.go('/${user!.role}/students'); }),
+                  _DrawerItem(icon: Icons.admin_panel_settings_rounded, title: 'Staff & Tutors', color: accentColor, onTap: () { context.pop(); context.go('/${user!.role}/staff'); }),
+                  _DrawerItem(icon: Icons.layers_rounded, title: 'Manage Batches', color: accentColor, onTap: () { context.pop(); context.go('/${user!.role}/batches'); }),
+                  _DrawerItem(icon: Icons.analytics_rounded, title: 'Attendance Reports', color: accentColor, onTap: () { context.pop(); context.go('/${user!.role}/reports'); }),
+                  _DrawerItem(icon: Icons.campaign_rounded, title: 'Announcements', color: accentColor, onTap: () { context.pop(); context.go('/${user!.role}/announcements'); }),
+                  _DrawerItem(icon: Icons.menu_book_rounded, title: 'Content Library', color: accentColor, onTap: () { context.pop(); context.go('/${user!.role}/content'); }),
+                  if (user?.role == 'admin')
+                    _DrawerItem(icon: Icons.manage_search_rounded, title: 'Enrollment Pipeline', color: const Color(0xFF6366F1), onTap: () { context.pop(); context.go('/admin/leads'); }),
+                  if (user?.role == 'staff' && (user?.isManager ?? false))
+                    _DrawerItem(icon: Icons.manage_search_rounded, title: 'Enrollment Pipeline', color: const Color(0xFF6366F1), onTap: () { context.pop(); context.go('/staff/leads'); }),
+                ],
+
+                // -- Tutor Quick Links --
+                if (user?.role == 'tutor') ...[
+                  _DrawerItem(icon: Icons.layers_rounded, title: 'My Batches', color: accentColor, onTap: () { context.pop(); context.push('/tutor/batches'); }),
+                  _DrawerItem(icon: Icons.people_alt_rounded, title: 'My Students', color: accentColor, onTap: () { context.pop(); context.push('/tutor/students'); }),
+                  _DrawerItem(icon: Icons.checklist_rtl_rounded, title: 'Mark Attendance', color: accentColor, onTap: () { context.pop(); context.push('/tutor/mark-attendance'); }),
+                  _DrawerItem(icon: Icons.campaign_rounded, title: 'Announcements', color: accentColor, onTap: () { context.pop(); context.push('/tutor/announcements'); }),
+                  _DrawerItem(icon: Icons.menu_book_rounded, title: 'Content Library', color: accentColor, onTap: () { context.pop(); context.push('/tutor/content'); }),
+                ],
+
+                // -- Student Quick Links --
+                if (user?.role == 'student') ...[
+                  _DrawerItem(icon: Icons.menu_book_rounded, title: 'Content Library', color: accentColor, onTap: () { context.pop(); context.push('/student/content'); }),
+                  _DrawerItem(icon: Icons.campaign_rounded, title: 'Announcements', color: accentColor, onTap: () { context.pop(); context.push('/student/announcements'); }),
+                ],
                 const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                   child: Divider(),
@@ -375,7 +502,7 @@ class _DrawerItem extends StatelessWidget {
       title: Text(title, style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600, color: c)),
       onTap: onTap,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
     );
   }
 }

@@ -17,15 +17,16 @@ class MarkAttendanceScreen extends ConsumerStatefulWidget {
 class _MarkAttendanceScreenState extends ConsumerState<MarkAttendanceScreen> {
   String? _selectedBatchId;
   DateTime _selectedDate = DateTime.now();
-  String _category = 'students'; // 'students' | 'staff'
   Map<String, String> _attendanceMap = {}; 
   bool _isSaving = false;
+  String _searchQuery = '';
 
   @override
   Widget build(BuildContext context) {
     final user = ref.watch(currentUserProvider);
-    final isAdmin = user?.role == 'admin';
-    final batchesState = isAdmin 
+    final isStaffOrAdmin = user?.role == 'admin' || user?.role == 'staff';
+    
+    final batchesState = isStaffOrAdmin 
         ? ref.watch(adminBatchesProvider) 
         : ref.watch(tutorDashboardProvider).when(
             data: (stats) => AsyncValue.data(stats.batches),
@@ -38,27 +39,35 @@ class _MarkAttendanceScreenState extends ConsumerState<MarkAttendanceScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Mark Attendance'),
-        actions: [
-          if (_attendanceMap.isNotEmpty || (_category == 'staff' && _selectedBatchId == null))
-            TextButton.icon(
-              onPressed: _isSaving ? null : _saveAttendance,
-              icon: const Icon(Icons.check_circle_rounded, size: 18),
-              label: const Text('Save'),
-            ),
-        ],
+        title: const Text('Mark Student Attendance'),
       ),
       body: Column(
         children: [
-          _buildCategoryToggle(theme),
-          if (_category == 'students') _buildSelectionHeader(batchesState),
+          _buildSelectionHeader(batchesState),
+          if (_selectedBatchId != null)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: TextField(
+                decoration: InputDecoration(
+                  hintText: 'Search name...',
+                  prefixIcon: const Icon(Icons.search_rounded, color: Colors.grey),
+                  filled: true,
+                  fillColor: Colors.white,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 0),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                ),
+                onChanged: (val) => setState(() => _searchQuery = val),
+              ),
+            ),
           const Divider(),
           Expanded(
-            child: (_category == 'students' && _selectedBatchId == null)
+            child: (_selectedBatchId == null)
                 ? _buildInitialEmptyState()
                 : studentsState.when(
-                    data: (students) {
-                      if (students.isEmpty) return const Center(child: Text('No students in this batch.'));
+                    data: (allStudents) {
+                      final students = allStudents.where((s) => (s.studentName ?? '').toLowerCase().contains(_searchQuery.toLowerCase())).toList();
+                      if (students.isEmpty) return Center(child: Text(_searchQuery.isEmpty ? 'No records.' : 'No matches found.'));
                       return ListView.builder(
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                         itemCount: students.length,
@@ -75,32 +84,30 @@ class _MarkAttendanceScreenState extends ConsumerState<MarkAttendanceScreen> {
           ),
         ],
       ),
+      bottomNavigationBar: (_selectedBatchId != null)
+          ? Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, -5))],
+              ),
+              child: SafeArea(
+                child: FilledButton(
+                  onPressed: _isSaving ? null : _saveAttendance,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFF0284C7),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: _isSaving 
+                      ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : const Text('Save Attendance', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                ),
+              ),
+            )
+          : null,
     );
-  }
-
-  Widget _buildCategoryToggle(ThemeData theme) {
-     return Padding(
-       padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-       child: SegmentedButton<String>(
-         segments: const [
-           ButtonSegment(value: 'students', label: Text('Students'), icon: Icon(Icons.person_rounded)),
-           ButtonSegment(value: 'staff', label: Text('Staff / Tutors'), icon: Icon(Icons.person_pin_rounded)),
-         ],
-         selected: {_category},
-         onSelectionChanged: (set) {
-           setState(() {
-             _category = set.first;
-             _attendanceMap = {};
-             _selectedBatchId = null;
-           });
-           if (_category == 'staff') {
-             ref.read(attendanceMarkingProvider.notifier).fetchStaff();
-             _loadAttendanceMap();
-           }
-         },
-         style: SegmentedButton.styleFrom(visualDensity: VisualDensity.compact),
-       ),
-     );
   }
 
   Widget _buildSelectionHeader(AsyncValue<dynamic> batchesState) {
@@ -110,7 +117,7 @@ class _MarkAttendanceScreenState extends ConsumerState<MarkAttendanceScreen> {
         children: [
           batchesState.when(
             data: (batches) => DropdownButtonFormField<String>(
-              value: _selectedBatchId,
+              initialValue: _selectedBatchId,
               decoration: const InputDecoration(labelText: 'Select Batch', prefixIcon: Icon(Icons.layers_rounded)),
               items: (batches as List).map((b) => DropdownMenuItem<String>(value: b.id.toString(), child: Text(b.name.toString()))).toList(),
               onChanged: (v) {
@@ -236,7 +243,7 @@ class _MarkAttendanceScreenState extends ConsumerState<MarkAttendanceScreen> {
     final map = await ref.read(attendanceMarkingProvider.notifier).getExistingAttendance(
       batchId: _selectedBatchId,
       date: _selectedDate,
-      isStaff: _category == 'staff',
+      isStaff: false,
     );
     if (mounted) {
       setState(() {
@@ -247,7 +254,7 @@ class _MarkAttendanceScreenState extends ConsumerState<MarkAttendanceScreen> {
 
   Future<void> _saveAttendance() async {
     final students = ref.read(attendanceMarkingProvider).value ?? [];
-    if (_category == 'students' && _selectedBatchId == null) return;
+    if (_selectedBatchId == null) return;
     
     // Fill in default 'absent' for any not marked
     for (var s in students) {
@@ -256,18 +263,11 @@ class _MarkAttendanceScreenState extends ConsumerState<MarkAttendanceScreen> {
 
     setState(() => _isSaving = true);
     try {
-      if (_category == 'students') {
-        await ref.read(attendanceMarkingProvider.notifier).markAttendance(
-          batchId: _selectedBatchId!,
-          date: _selectedDate,
-          statusMap: _attendanceMap,
-        );
-      } else {
-        await ref.read(attendanceMarkingProvider.notifier).markStaffAttendance(
-          date: _selectedDate,
-          statusMap: _attendanceMap,
-        );
-      }
+      await ref.read(attendanceMarkingProvider.notifier).markAttendance(
+        batchId: _selectedBatchId!,
+        date: _selectedDate,
+        statusMap: _attendanceMap,
+      );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Attendance saved successfully!')));
       Navigator.pop(context);

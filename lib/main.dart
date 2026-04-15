@@ -31,7 +31,7 @@ class CoachingApp extends ConsumerWidget {
     final router = ref.watch(routerProvider);
 
     return MaterialApp.router(
-      title:             'Coaching Manager',
+      title:             'MFL Rajkot',
       theme:             AppTheme.light,
       darkTheme:         AppTheme.dark,
       themeMode:         ThemeMode.light,

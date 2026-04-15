@@ -38,7 +38,7 @@ class AnnouncementNotifier extends StateNotifier<AsyncValue<List<AnnouncementMod
       final data = await _supabase
           .from(AppConstants.announcementsTable)
           .select()
-          .eq('institute_id', _admin!.instituteId)
+          .eq('institute_id', _admin.instituteId)
           .order('created_at', ascending: false);
       
       final rawList = data as List;
@@ -93,11 +93,11 @@ class AnnouncementNotifier extends StateNotifier<AsyncValue<List<AnnouncementMod
       await _supabase.from(AppConstants.announcementsTable).insert({
         'title': title,
         'message': content,
-        'institute_id': _admin!.instituteId,
-        'created_by': _admin!.id,
+        'institute_id': _admin.instituteId,
+        'created_by': _admin.id,
       });
       await fetchAnnouncements();
-    } catch (e, st) {
+    } catch (e) {
       print('DEBUG: Announcement create error: $e');
       rethrow;
     }

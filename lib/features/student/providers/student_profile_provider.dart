@@ -28,7 +28,7 @@ class StudentProfileNotifier extends StateNotifier<AsyncValue<StudentModel?>> {
               tutors:tutor_id (name)
             )
           ''')
-          .eq('user_id', _userId!)
+          .eq('user_id', _userId)
           .maybeSingle();
 
       if (data == null) {
@@ -62,7 +62,7 @@ class StudentProfileNotifier extends StateNotifier<AsyncValue<StudentModel?>> {
         'parent_mobile': parentMobile,
         'address': address,
         'dob': dob,
-      }).eq('user_id', _userId!);
+      }).eq('user_id', _userId);
       
       // Refresh current student state
       await fetchProfile();

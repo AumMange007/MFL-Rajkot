@@ -25,7 +25,7 @@ class TutorManagementNotifier extends StateNotifier<AsyncValue<List<UserModel>>>
       final data = await _supabase
           .from(AppConstants.usersTable)
           .select()
-          .eq('institute_id', _admin!.instituteId)
+          .eq('institute_id', _admin.instituteId)
           .eq('role', AppConstants.roleTutor)
           .order('name');
       
@@ -88,12 +88,12 @@ class TutorManagementNotifier extends StateNotifier<AsyncValue<List<UserModel>>>
         'email': effectiveEmail,
         'phone': phone,
         'role': AppConstants.roleTutor,
-        'institute_id': _admin!.instituteId,
+        'institute_id': _admin.instituteId,
       });
 
       await _supabase.from('tutors').insert({
         'user_id': userId,
-        'institute_id': _admin!.instituteId,
+        'institute_id': _admin.instituteId,
       });
 
       await fetchTutors();

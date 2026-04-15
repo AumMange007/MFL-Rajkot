@@ -24,7 +24,7 @@ class BatchManagementNotifier extends StateNotifier<AsyncValue<List<BatchModel>>
       final data = await _supabase
           .from(AppConstants.batchesTable)
           .select('*, batch_tutors(tutor_id, users:tutor_id(name))')
-          .eq('institute_id', _admin!.instituteId)
+          .eq('institute_id', _admin.instituteId)
           .order('name');
       
       final batches = (data as List).map((e) => BatchModel.fromJson(e)).toList();
@@ -43,7 +43,7 @@ class BatchManagementNotifier extends StateNotifier<AsyncValue<List<BatchModel>>
       // 1. Insert Batch
       final batchRes = await _supabase.from(AppConstants.batchesTable).insert({
         'name': name,
-        'institute_id': _admin!.instituteId,
+        'institute_id': _admin.instituteId,
       }).select().single();
 
       final batchId = batchRes['id'] as String;
@@ -53,7 +53,7 @@ class BatchManagementNotifier extends StateNotifier<AsyncValue<List<BatchModel>>
         final junctionRecords = tutorIds.map((tid) => {
           'batch_id': batchId,
           'tutor_id': tid,
-          'institute_id': _admin!.instituteId,
+          'institute_id': _admin.instituteId,
         }).toList();
 
         await _supabase.from('batch_tutors').insert(junctionRecords);
@@ -97,9 +97,23 @@ class BatchManagementNotifier extends StateNotifier<AsyncValue<List<BatchModel>>
 
   Future<void> deleteBatch(BatchModel batch) async {
     try {
+      print('DEBUG: Deleting batch ${batch.id}');
+      
+      // 1. Detach students from this batch first to avoid FK constraint errors
+      await _supabase
+          .from(AppConstants.studentsTable)
+          .update({'batch_id': null})
+          .eq('batch_id', batch.id);
+      
+      // 2. Clear tutor associations
+      await _supabase.from('batch_tutors').delete().eq('batch_id', batch.id);
+
+      // 3. Delete the actual batch
       await _supabase.from(AppConstants.batchesTable).delete().eq('id', batch.id);
+      
       await fetchBatches();
     } catch (e) {
+      print('DEBUG: Delete batch error: $e');
       rethrow;
     }
   }

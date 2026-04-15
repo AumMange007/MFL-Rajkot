@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../../models/student_model.dart';
 import '../providers/student_profile_provider.dart';
 import '../../common/providers/profile_photo_provider.dart';
+import '../../../widgets/common_widgets.dart';
 
 class StudentProfileScreen extends ConsumerStatefulWidget {
   const StudentProfileScreen({super.key});
@@ -47,14 +49,18 @@ class _StudentProfileScreenState extends ConsumerState<StudentProfileScreen> {
     });
 
     return Scaffold(
+      backgroundColor: const Color(0xFFF0F6FF),
       appBar: AppBar(
-        title: const Text('My Profile'),
+        title: Text('My Profile', style: GoogleFonts.inter(fontWeight: FontWeight.w700, color: const Color(0xFF0F172A))),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        foregroundColor: const Color(0xFF0F172A),
         actions: [
           if (profileState.hasValue && profileState.value != null)
             TextButton.icon(
               onPressed: () => setState(() => _isEditing = !_isEditing),
               icon: Icon(_isEditing ? Icons.close_rounded : Icons.edit_rounded, size: 18),
-              label: Text(_isEditing ? 'Cancel' : 'Edit'),
+              label: Text(_isEditing ? 'Cancel' : 'Edit', style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
             ),
           if (_isEditing && !_isSaving)
             TextButton(
@@ -71,10 +77,19 @@ class _StudentProfileScreenState extends ConsumerState<StudentProfileScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildHeader(student, ref),
-                  const SizedBox(height: 32),
-                  
-                  if (_isEditing) ...[
+                  Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 4))]),
+                    child: _buildHeader(student, ref),
+                  ),
+                  const SizedBox(height: 24),
+                  Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 4))]),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (_isEditing) ...[
                     _buildField('My Mobile Number', _mobileCtrl, Icons.phone_android_rounded),
                     _buildField('Parent\'s Mobile Number', _parentMobileCtrl, Icons.family_restroom_rounded),
                     _buildField('My Address', _addressCtrl, Icons.home_rounded, maxLines: 2),
@@ -84,23 +99,30 @@ class _StudentProfileScreenState extends ConsumerState<StudentProfileScreen> {
                     if (_isSaving)
                       const Center(child: CircularProgressIndicator())
                     else
-                      SizedBox(
-                        width: double.infinity,
-                        child: FilledButton.icon(
-                          onPressed: _save,
-                          icon: const Icon(Icons.save_rounded),
-                          label: const Text('Update Profile Details'),
+                        SizedBox(
+                          width: double.infinity,
+                          child: FilledButton.icon(
+                            onPressed: _save,
+                            icon: const Icon(Icons.save_rounded),
+                            label: const Text('Update Profile Details'),
+                          ),
                         ),
-                      ),
-                  ] else ...[
-                    _buildViewField('Mobile Number', student?.mobile, Icons.phone_android_rounded),
-                    _buildViewField('Parent\'s Mobile', student?.parentMobile, Icons.family_restroom_rounded),
-                    _buildViewField('Address', student?.address, Icons.home_rounded),
-                    _buildViewField('Date of Birth', student?.dateOfBirth, Icons.cake_rounded),
-                    
-                    const SizedBox(height: 32),
-                    const Divider(),
-                    const SizedBox(height: 32),
+                    ] else ...[
+                      _buildViewField('Mobile Number', student?.mobile, Icons.phone_android_rounded),
+                      _buildViewField('Parent\'s Mobile', student?.parentMobile, Icons.family_restroom_rounded),
+                      _buildViewField('Address', student?.address, Icons.home_rounded),
+                      _buildViewField('Date of Birth', student?.dateOfBirth, Icons.cake_rounded),
+                    ],
+                  ],
+                ),
+              ),
+                const SizedBox(height: 24),
+                if (!_isEditing) Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 4))]),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                     
                     Text('Academic Progress', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
                     const SizedBox(height: 16),
@@ -123,6 +145,7 @@ class _StudentProfileScreenState extends ConsumerState<StudentProfileScreen> {
                       ],
                     ),
                   ],
+                )),
                 ],
               ),
             ),
@@ -140,27 +163,19 @@ class _StudentProfileScreenState extends ConsumerState<StudentProfileScreen> {
   }
 
   Widget _buildViewField(String label, String? value, IconData icon) {
-    final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.only(bottom: 20),
+      padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
         children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.primaryContainer.withOpacity(0.4),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(icon, color: theme.colorScheme.primary, size: 20),
-          ),
-          const SizedBox(width: 16),
+          Icon(icon, size: 18, color: const Color(0xFF64748B)),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label, style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline)),
+                Text(label, style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF94A3B8))),
                 Text(value != null && value.isNotEmpty ? value : 'Not provided', 
-                    style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600)),
+                    style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600, color: const Color(0xFF1E293B))),
               ],
             ),
           ),
@@ -174,7 +189,7 @@ class _StudentProfileScreenState extends ConsumerState<StudentProfileScreen> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceVariant.withOpacity(0.3),
+        color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.3),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: theme.colorScheme.outlineVariant.withOpacity(0.5)),
       ),
@@ -208,7 +223,11 @@ class _StudentProfileScreenState extends ConsumerState<StudentProfileScreen> {
     return Row(
       children: [
         GestureDetector(
-          onTap: () => _showPhotoOptions(ref, avatarUrl),
+          onTap: () => ProfilePhotoActions.showOptions(
+            context: context,
+            ref: ref,
+            currentImageUrl: avatarUrl,
+          ),
           child: Stack(
             children: [
               CircleAvatar(
@@ -248,59 +267,6 @@ class _StudentProfileScreenState extends ConsumerState<StudentProfileScreen> {
     );
   }
 
-  void _showPhotoOptions(WidgetRef ref, String? currentUrl) {
-    showModalBottomSheet(
-      context: context,
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.photo_library_rounded),
-              title: const Text('Update Photo'),
-              onTap: () {
-                Navigator.pop(context);
-                ref.read(profilePhotoProvider.notifier).pickAndUploadImage();
-              },
-            ),
-            if (currentUrl != null && currentUrl.isNotEmpty)
-              ListTile(
-                leading: const Icon(Icons.delete_outline_rounded, color: Colors.red),
-                title: const Text('Remove Photo', style: TextStyle(color: Colors.red)),
-                onTap: () {
-                  Navigator.pop(context);
-                  _confirmRemovePhoto(ref);
-                },
-              ),
-            const SizedBox(height: 8),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _confirmRemovePhoto(WidgetRef ref) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Remove Photo?'),
-        content: const Text('Are you sure you want to remove your profile photo?'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              ref.read(profilePhotoProvider.notifier).deletePhoto();
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Profile photo removed'), behavior: SnackBarBehavior.floating),
-              );
-            },
-            child: const Text('Remove', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
-    );
-  }
 
   Widget _buildField(String label, TextEditingController ctrl, IconData icon, {int maxLines = 1}) {
     return Padding(

@@ -45,7 +45,7 @@ class StudentManagementNotifier extends StateNotifier<AsyncValue<List<StudentMod
             users:user_id (name, email, username, avatar_url),
             batches:batch_id (name)
           ''')
-          .eq('institute_id', _admin!.instituteId)
+          .eq('institute_id', _admin.instituteId)
           .order('enrolled_at', ascending: false);
       
       final students = (data as List).map((e) => StudentModel.fromJson(e)).toList();
@@ -72,7 +72,7 @@ class StudentManagementNotifier extends StateNotifier<AsyncValue<List<StudentMod
     
     // Pre-check for username duplicate in current list
     final currentStudents = state.valueOrNull ?? [];
-    if (currentStudents.any((s) => s.username?.toLowerCase() == username.toLowerCase())) {
+    if (currentStudents.any((s) => s.studentUsername?.toLowerCase() == username.toLowerCase())) {
       throw 'Username "$username" is already taken.';
     }
 
@@ -117,16 +117,27 @@ class StudentManagementNotifier extends StateNotifier<AsyncValue<List<StudentMod
         'phone': phone,
         'username': username,
         'role': 'student',
-        'institute_id': _admin!.instituteId,
+        'institute_id': _admin.instituteId,
       });
 
       await _supabase.from(AppConstants.studentsTable).insert({
         'user_id': userId,
         'batch_id': batchId,
-        'institute_id': _admin!.instituteId,
+        'institute_id': _admin.instituteId,
       });
 
       await fetchStudents();
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<void> manualResetPassword(String userId, String newPassword) async {
+    try {
+      await _supabase.rpc('admin_reset_password', params: {
+        'target_uid': userId,
+        'new_password': newPassword,
+      });
     } catch (e) {
       rethrow;
     }

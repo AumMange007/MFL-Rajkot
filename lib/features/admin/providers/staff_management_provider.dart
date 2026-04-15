@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/constants/app_constants.dart';
-import '../../../models/student_model.dart';
 import '../../../models/user_model.dart';
 import '../../../models/batch_model.dart';
 import 'admin_stats_provider.dart';
@@ -40,7 +39,7 @@ class StaffManagementNotifier extends StateNotifier<AsyncValue<List<UserModel>>>
       final data = await _supabase
           .from(AppConstants.usersTable)
           .select()
-          .eq('institute_id', _admin!.instituteId)
+          .eq('institute_id', _admin.instituteId)
           .inFilter('role', ['tutor', 'staff'])
           .order('name', ascending: true);
       
@@ -108,18 +107,52 @@ class StaffManagementNotifier extends StateNotifier<AsyncValue<List<UserModel>>>
         'phone': phone,
         'username': username,
         'role': role,
-        'institute_id': _admin!.instituteId,
+        'institute_id': _admin.instituteId,
       });
 
       // 3. For tutors, add default record in tutors profile table too
       if (role == 'tutor') {
         await _supabase.from('tutors').insert({
           'user_id': userId,
-          'institute_id': _admin!.instituteId,
+          'institute_id': _admin.instituteId,
         });
       }
 
       await fetchStaff();
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<void> updateStaffProfile({
+    required String userId,
+    required String name,
+    required String role,
+    required String phone,
+    String? email,
+  }) async {
+    try {
+      await _supabase.from(AppConstants.usersTable).update({
+        'name': name,
+        'role': role,
+        'phone': phone,
+        if (email != null && email.isNotEmpty) 'email': email,
+      }).eq('id', userId);
+
+      await fetchStaff();
+      // Invalidate stats to reflect possible role counts
+      _ref.invalidate(adminStatsProvider);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<void> manualResetPassword(String userId, String newPassword) async {
+    try {
+      await _supabase.rpc('admin_reset_password', params: {
+        'target_uid': userId,
+        'new_password': newPassword,
+      });
     } catch (e) {
       rethrow;
     }

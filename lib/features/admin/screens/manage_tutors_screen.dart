@@ -1,11 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../../../widgets/common_widgets.dart';
 import '../../../models/user_model.dart';
 import '../providers/tutor_management_provider.dart';
 import '../../common/providers/profile_photo_provider.dart';
 import '../../common/providers/attendance_summary_provider.dart';
+
+// ─── Role colour ────────────────────────────────────────────────
+const _kAccent  = Color(0xFF0891B2);  // Tutor cyan
+const _kAccent2 = Color(0xFF0D5B78);
+const _kBg      = Color(0xFFF0F9FF);
 
 class ManageTutorsScreen extends ConsumerWidget {
   const ManageTutorsScreen({super.key});
@@ -13,69 +19,90 @@ class ManageTutorsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final tutorsState = ref.watch(tutorManagementProvider);
-    final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Manage Tutors'),
+      backgroundColor: _kBg,
+      body: CustomScrollView(
+        slivers: [
+          // ── Header ────────────────────────────────────────────
+          SliverAppBar(
+            expandedHeight: 130,
+            pinned: true,
+            backgroundColor: _kAccent,
+            flexibleSpace: FlexibleSpaceBar(
+              collapseMode: CollapseMode.pin,
+              background: Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft, end: Alignment.bottomRight,
+                    colors: [_kAccent, _kAccent2],
+                  ),
+                ),
+                padding: const EdgeInsets.fromLTRB(24, 90, 24, 20),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(color: Colors.white.withOpacity(0.15), borderRadius: BorderRadius.circular(14)),
+                      child: const Icon(Icons.school_rounded, color: Colors.white, size: 22),
+                    ),
+                    const SizedBox(width: 14),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text('Manage Tutors', style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w800, color: Colors.white)),
+                        tutorsState.maybeWhen(
+                          data: (list) => Text('${list.length} educators', style: GoogleFonts.inter(fontSize: 12, color: Colors.white70)),
+                          orElse: () => const SizedBox.shrink(),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              IconButton(icon: const Icon(Icons.refresh_rounded, color: Colors.white), onPressed: () => ref.refresh(tutorManagementProvider)),
+            ],
+          ),
+
+          // ── Body ──────────────────────────────────────────────
+          SliverToBoxAdapter(
+            child: tutorsState.when(
+              data: (tutors) {
+                if (tutors.isEmpty) {
+                  return const Padding(
+                    padding: EdgeInsets.only(top: 80),
+                    child: EmptyState(
+                      icon: Icons.person_add_disabled_outlined,
+                      title: 'No tutors yet',
+                      subtitle: 'Add tutors to start creating batches.',
+                    ),
+                  );
+                }
+                return Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    children: tutors.map((t) => _TutorCard(tutor: t)).toList(),
+                  ),
+                );
+              },
+              loading: () => const Padding(
+                padding: EdgeInsets.only(top: 100),
+                child: Center(child: CircularProgressIndicator(color: _kAccent)),
+              ),
+              error: (e, _) => ErrorState(message: e.toString(), onRetry: () => ref.refresh(tutorManagementProvider)),
+            ),
+          ),
+        ],
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showAddTutorSheet(context, ref),
+        backgroundColor: _kAccent,
+        foregroundColor: Colors.white,
         icon: const Icon(Icons.add_rounded),
-        label: const Text('Add Tutor'),
-      ),
-      body: tutorsState.when(
-        data: (tutors) {
-          if (tutors.isEmpty) {
-            return const Center(
-              child: EmptyState(
-                icon: Icons.person_add_disabled_outlined,
-                title: 'No tutors found',
-                subtitle: 'Add tutors to start creating batches.',
-              ),
-            );
-          }
-          return ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: tutors.length,
-            itemBuilder: (context, index) {
-              final tutor = tutors[index];
-              return Card(
-                margin: const EdgeInsets.only(bottom: 12),
-                child: ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: theme.colorScheme.secondaryContainer,
-                    backgroundImage: tutor.avatarUrl != null && tutor.avatarUrl!.isNotEmpty 
-                        ? CachedNetworkImageProvider(tutor.avatarUrl!) 
-                        : null,
-                    child: tutor.avatarUrl == null || tutor.avatarUrl!.isEmpty
-                      ? Text(tutor.name[0].toUpperCase())
-                      : null,
-                  ),
-                  onTap: () => _showProfile(context, tutor),
-                  title: Text(tutor.name, style: const TextStyle(fontWeight: FontWeight.w600)),
-                  subtitle: Text(tutor.email),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.add_a_photo_rounded, size: 20),
-                        onPressed: () => ref.read(profilePhotoProvider.notifier).uploadForUser(tutor.id),
-                        tooltip: 'Update Tutor Photo',
-                      ),
-                      IconButton(
-                        icon: Icon(Icons.delete_outline_rounded, color: theme.colorScheme.error),
-                        onPressed: () => _confirmDelete(context, ref, tutor),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            },
-          );
-        },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, _) => ErrorState(message: err.toString(), onRetry: () => ref.refresh(tutorManagementProvider)),
+        label: Text('Add Tutor', style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
       ),
     );
   }
@@ -84,22 +111,95 @@ class ManageTutorsScreen extends ConsumerWidget {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       builder: (_) => const AddTutorSheet(),
+    );
+  }
+}
+
+// ─── Tutor Card ───────────────────────────────────────────────────────────────
+class _TutorCard extends ConsumerWidget {
+  final UserModel tutor;
+  const _TutorCard({required this.tutor});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 3))],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            // Avatar
+            GestureDetector(
+              onTap: () => _showProfile(context, ref, tutor),
+              child: CircleAvatar(
+                radius: 28,
+                backgroundColor: _kAccent.withOpacity(0.1),
+                backgroundImage: tutor.avatarUrl != null && tutor.avatarUrl!.isNotEmpty
+                    ? CachedNetworkImageProvider(tutor.avatarUrl!)
+                    : null,
+                child: tutor.avatarUrl == null || tutor.avatarUrl!.isEmpty
+                    ? Text(tutor.name[0].toUpperCase(), style: GoogleFonts.inter(fontWeight: FontWeight.w800, color: _kAccent, fontSize: 18))
+                    : null,
+              ),
+            ),
+            const SizedBox(width: 14),
+            // Info
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(tutor.name, style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 15, color: const Color(0xFF0F172A))),
+                  const SizedBox(height: 2),
+                  Text(tutor.email, style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF64748B))),
+                  if (tutor.phone != null && tutor.phone!.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(tutor.phone!, style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF94A3B8))),
+                  ],
+                ],
+              ),
+            ),
+            // Actions
+            Column(
+              children: [
+                _ActionBtn(
+                  icon: Icons.camera_alt_rounded,
+                  color: _kAccent,
+                  onTap: () => ProfilePhotoActions.showOptions(context: context, ref: ref, currentImageUrl: tutor.avatarUrl, targetUserId: tutor.id),
+                ),
+                const SizedBox(height: 6),
+                _ActionBtn(
+                  icon: Icons.delete_outline_rounded,
+                  color: const Color(0xFFEF4444),
+                  onTap: () => _confirmDelete(context, ref, tutor),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 
   Future<void> _confirmDelete(BuildContext context, WidgetRef ref, UserModel tutor) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete Tutor?'),
-        content: Text('Remove ${tutor.name}? This could affect associated batches.'),
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text('Remove Tutor?', style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
+        content: Text('Remove ${tutor.name}? This may affect associated batches.', style: GoogleFonts.inter()),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.error),
-            child: const Text('Delete'),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Remove'),
           ),
         ],
       ),
@@ -108,20 +208,41 @@ class ManageTutorsScreen extends ConsumerWidget {
       try {
         await ref.read(tutorManagementProvider.notifier).deleteTutor(tutor);
       } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+        if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), behavior: SnackBarBehavior.floating));
       }
     }
   }
 
-  void _showProfile(BuildContext context, UserModel tutor) {
+  void _showProfile(BuildContext context, WidgetRef ref, UserModel tutor) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       builder: (_) => TutorProfileSheet(tutor: tutor),
     );
   }
 }
 
+class _ActionBtn extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+  const _ActionBtn({required this.icon, required this.color, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(color: color.withOpacity(0.08), borderRadius: BorderRadius.circular(10)),
+        child: Icon(icon, color: color, size: 18),
+      ),
+    );
+  }
+}
+
+// ─── Tutor Profile Sheet ─────────────────────────────────────────────────────
 class TutorProfileSheet extends ConsumerWidget {
   final UserModel tutor;
   const TutorProfileSheet({super.key, required this.tutor});
@@ -129,74 +250,78 @@ class TutorProfileSheet extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final attState = ref.watch(weeklyTutorAttendanceProvider(tutor.id));
-    
-    return Padding(
+
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
       padding: const EdgeInsets.all(24),
       child: Column(
         mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              CircleAvatar(
-                radius: 30,
-                backgroundImage: tutor.avatarUrl != null ? CachedNetworkImageProvider(tutor.avatarUrl!) : null,
-                child: tutor.avatarUrl == null ? const Icon(Icons.person) : null,
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(tutor.name, style: Theme.of(context).textTheme.titleLarge),
-                    Text(tutor.email),
-                    Text('Phone: ${tutor.phone ?? "Not provided"}', style: const TextStyle(color: Colors.grey)),
-                  ],
-                ),
-              ),
-            ],
+          Container(width: 40, height: 4, decoration: BoxDecoration(color: const Color(0xFFE2E8F0), borderRadius: BorderRadius.circular(4))),
+          const SizedBox(height: 20),
+          // Avatar
+          CircleAvatar(
+            radius: 40,
+            backgroundColor: _kAccent.withOpacity(0.1),
+            backgroundImage: tutor.avatarUrl != null && tutor.avatarUrl!.isNotEmpty
+                ? CachedNetworkImageProvider(tutor.avatarUrl!)
+                : null,
+            child: tutor.avatarUrl == null || tutor.avatarUrl!.isEmpty
+                ? Text(tutor.name[0].toUpperCase(), style: GoogleFonts.inter(fontWeight: FontWeight.w800, color: _kAccent, fontSize: 28))
+                : null,
           ),
-          const SizedBox(height: 32),
-          Text('Weekly Pulse (Last 7 Days)', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
+          Text(tutor.name, style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w800, color: const Color(0xFF0F172A))),
+          Text(tutor.email, style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF64748B))),
+          if (tutor.phone != null && tutor.phone!.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(tutor.phone!, style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF94A3B8))),
+          ],
+          const SizedBox(height: 24),
+          // Stats
+          Text('LAST 7 DAYS', style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, color: const Color(0xFF94A3B8), letterSpacing: 0.8)),
+          const SizedBox(height: 12),
           attState.when(
             data: (stats) => Row(
               children: [
-                _StatCard(title: 'Days Worked', value: stats['days_worked'].toString(), color: Colors.blue),
+                _StatPill(label: 'Days Active', value: stats['days_worked'].toString(), color: _kAccent),
                 const SizedBox(width: 12),
-                _StatCard(title: 'Total Hours', value: stats['total_hours'].toString(), color: Colors.purple),
+                _StatPill(label: 'Hours Taught', value: stats['total_hours'].toString() + 'h', color: const Color(0xFF0891B2)),
               ],
             ),
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, _) => Text('Error: $e'),
+            loading: () => const CircularProgressIndicator(),
+            error: (e, _) => Text('Error: $e', style: const TextStyle(color: Colors.red)),
           ),
-          const SizedBox(height: 32),
+          const SizedBox(height: 24),
         ],
       ),
     );
   }
 }
 
-class _StatCard extends StatelessWidget {
-  final String title;
-  final String value;
+class _StatPill extends StatelessWidget {
+  final String label, value;
   final Color color;
-  const _StatCard({required this.title, required this.value, required this.color});
+  const _StatPill({required this.label, required this.value, required this.color});
 
   @override
   Widget build(BuildContext context) {
     return Expanded(
       child: Container(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.symmetric(vertical: 16),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withOpacity(0.3)),
+          color: color.withOpacity(0.07),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: color.withOpacity(0.2)),
         ),
         child: Column(
           children: [
-            Text(value, style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: color)),
-            Text(title, style: TextStyle(fontSize: 12, color: color)),
+            Text(value, style: GoogleFonts.inter(fontSize: 24, fontWeight: FontWeight.w800, color: color)),
+            const SizedBox(height: 4),
+            Text(label, style: GoogleFonts.inter(fontSize: 11, color: color.withOpacity(0.8), fontWeight: FontWeight.w600)),
           ],
         ),
       ),
@@ -204,20 +329,21 @@ class _StatCard extends StatelessWidget {
   }
 }
 
+// ─── Add Tutor Sheet ─────────────────────────────────────────────────────────
 class AddTutorSheet extends ConsumerStatefulWidget {
   const AddTutorSheet({super.key});
-
   @override
   ConsumerState<AddTutorSheet> createState() => _AddTutorSheetState();
 }
 
 class _AddTutorSheetState extends ConsumerState<AddTutorSheet> {
   final _formKey = GlobalKey<FormState>();
-  final _nameCtrl = TextEditingController();
+  final _nameCtrl  = TextEditingController();
   final _emailCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
-  final _pwdCtrl = TextEditingController();
+  final _pwdCtrl   = TextEditingController();
   bool _isLoading = false;
+  bool _obscure = true;
 
   @override
   void dispose() {
@@ -235,9 +361,9 @@ class _AddTutorSheetState extends ConsumerState<AddTutorSheet> {
         phone: _phoneCtrl.text.trim(),
         password: _pwdCtrl.text.trim(),
       );
-      Navigator.pop(context);
+      if (mounted) Navigator.pop(context);
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), behavior: SnackBarBehavior.floating));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -245,27 +371,90 @@ class _AddTutorSheetState extends ConsumerState<AddTutorSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.fromLTRB(24, 24, 24, MediaQuery.of(context).viewInsets.bottom + 24),
+    return Container(
+      decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(32))),
+      padding: EdgeInsets.fromLTRB(24, 20, 24, MediaQuery.of(context).viewInsets.bottom + 24),
       child: Form(
         key: _formKey,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text('Add New Tutor', style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 24),
-            TextFormField(controller: _nameCtrl, decoration: const InputDecoration(labelText: 'Name', prefixIcon: Icon(Icons.person))),
-            const SizedBox(height: 16),
-            TextFormField(controller: _emailCtrl, decoration: const InputDecoration(labelText: 'Email', prefixIcon: Icon(Icons.email))),
-            const SizedBox(height: 16),
-            TextFormField(controller: _phoneCtrl, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: 'Phone Number', prefixIcon: Icon(Icons.phone))),
-            const SizedBox(height: 16),
-            TextFormField(controller: _pwdCtrl, obscureText: true, decoration: const InputDecoration(labelText: 'Password', prefixIcon: Icon(Icons.lock))),
-            const SizedBox(height: 32),
-            FilledButton(onPressed: _isLoading ? null : _submit, child: const Text('Create Tutor')),
-          ],
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: const Color(0xFFE2E8F0), borderRadius: BorderRadius.circular(4)))),
+              const SizedBox(height: 20),
+              // Header
+              Row(children: [
+                Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: _kAccent.withOpacity(0.1), borderRadius: BorderRadius.circular(12)), child: const Icon(Icons.school_rounded, color: _kAccent, size: 20)),
+                const SizedBox(width: 12),
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('Add New Tutor', style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w800, color: const Color(0xFF0F172A))),
+                  Text('Fill in details to create an account', style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF64748B))),
+                ]),
+              ]),
+              const SizedBox(height: 28),
+              _Field(ctrl: _nameCtrl, label: 'Full Name', icon: Icons.person_rounded, validator: (v) => v!.isEmpty ? 'Required' : null),
+              const SizedBox(height: 16),
+              _Field(ctrl: _emailCtrl, label: 'Email Address', icon: Icons.email_rounded, keyboardType: TextInputType.emailAddress, validator: (v) => v!.isEmpty ? 'Required' : null),
+              const SizedBox(height: 16),
+              _Field(ctrl: _phoneCtrl, label: 'Phone Number', icon: Icons.phone_rounded, keyboardType: TextInputType.phone),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _pwdCtrl,
+                obscureText: _obscure,
+                style: GoogleFonts.inter(fontSize: 14),
+                validator: (v) => (v == null || v.length < 6) ? 'Min 6 characters' : null,
+                decoration: InputDecoration(
+                  labelText: 'Password',
+                  prefixIcon: const Icon(Icons.lock_rounded),
+                  suffixIcon: IconButton(icon: Icon(_obscure ? Icons.visibility_rounded : Icons.visibility_off_rounded), onPressed: () => setState(() => _obscure = !_obscure)),
+                  filled: true, fillColor: const Color(0xFFF8FAFC),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                ),
+              ),
+              const SizedBox(height: 32),
+              FilledButton(
+                onPressed: _isLoading ? null : _submit,
+                style: FilledButton.styleFrom(
+                  backgroundColor: _kAccent,
+                  padding: const EdgeInsets.symmetric(vertical: 18),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                ),
+                child: _isLoading
+                    ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                    : Text('Create Tutor Account', style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 15)),
+              ),
+            ],
+          ),
         ),
+      ),
+    );
+  }
+}
+
+class _Field extends StatelessWidget {
+  final TextEditingController ctrl;
+  final String label;
+  final IconData icon;
+  final TextInputType? keyboardType;
+  final String? Function(String?)? validator;
+
+  const _Field({required this.ctrl, required this.label, required this.icon, this.keyboardType, this.validator});
+
+  @override
+  Widget build(BuildContext context) {
+    return TextFormField(
+      controller: ctrl,
+      keyboardType: keyboardType,
+      validator: validator,
+      style: GoogleFonts.inter(fontSize: 14),
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: Icon(icon),
+        filled: true, fillColor: const Color(0xFFF8FAFC),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
       ),
     );
   }

@@ -1,7 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/constants/app_constants.dart';
-import '../../../models/attendance_model.dart';
 import '../../../models/student_model.dart';
 import '../../auth/providers/auth_provider.dart';
 import 'attendance_summary_provider.dart';
@@ -107,6 +106,7 @@ class AttendanceMarkingNotifier extends StateNotifier<AsyncValue<List<StudentMod
       // Invalidate providers to refresh UI
       _ref.invalidate(attendanceSummaryProvider);
       _ref.invalidate(todayAttendanceProvider);
+      _ref.invalidate(weeklyStaffAttendanceProvider);
     } catch (e) {
       rethrow;
     }
@@ -122,6 +122,14 @@ class AttendanceMarkingNotifier extends StateNotifier<AsyncValue<List<StudentMod
 
     try {
       final dateStr = date.toIso8601String().split('T').first;
+      
+      // Clear any existing attendance for these students on this date (regardless of batch)
+      // to prevent duplication errors when students are moved between batches.
+      final studentIds = statusMap.keys.toList();
+      await _supabase.from(AppConstants.attendanceTable)
+          .delete()
+          .inFilter('student_id', studentIds)
+          .eq('date', dateStr);
       
       final attendanceList = statusMap.entries.map((entry) => {
         'student_id': entry.key,
@@ -140,6 +148,7 @@ class AttendanceMarkingNotifier extends StateNotifier<AsyncValue<List<StudentMod
       // Invalidate providers to refresh UI
       _ref.invalidate(attendanceSummaryProvider);
       _ref.invalidate(todayAttendanceProvider);
+      _ref.invalidate(weeklyAttendanceProvider);
     } catch (e) {
       rethrow;
     }

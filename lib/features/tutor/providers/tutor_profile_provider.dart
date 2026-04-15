@@ -23,7 +23,7 @@ class TutorProfileNotifier extends StateNotifier<AsyncValue<TutorModel?>> {
             *,
             users:user_id (id, name, email, avatar_url)
           ''')
-          .eq('user_id', _userId!)
+          .eq('user_id', _userId)
           .maybeSingle();
 
       if (data == null) {
@@ -64,7 +64,7 @@ class TutorProfileNotifier extends StateNotifier<AsyncValue<TutorModel?>> {
         'qualification': qualification,
         'dob': dob,
         'updated_at': DateTime.now().toIso8601String(),
-      }).eq('user_id', _userId!);
+      }).eq('user_id', _userId);
       
       // Refresh local state
       await fetchProfile();

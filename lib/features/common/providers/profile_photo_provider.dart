@@ -1,8 +1,9 @@
 import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:image_picker/image_picker.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/constants/app_constants.dart';
+import '../../../core/services/permission_service.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../student/providers/student_profile_provider.dart';
 import '../../tutor/providers/tutor_profile_provider.dart';
@@ -18,40 +19,27 @@ class ProfilePhotoNotifier extends StateNotifier<AsyncValue<String?>> {
 
   Future<void> pickAndUploadImage() async {
     if (_userId == null) return;
-    
-    final picker = ImagePicker();
-    final XFile? image = await picker.pickImage(
-      source: ImageSource.gallery,
-      maxWidth: 512,
-      maxHeight: 512,
-      imageQuality: 80,
+
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.image,
+      allowMultiple: false,
     );
 
-    if (image == null) return;
-
+    if (result == null || result.files.isEmpty) return;
     state = const AsyncValue.loading();
 
     try {
-      final file = File(image.path);
-      final fileExtension = image.path.split('.').last;
+      final file = File(result.files.single.path!);
+      final fileExtension = result.files.single.extension ?? 'jpg';
       final fileName = '$_userId.${DateTime.now().millisecondsSinceEpoch}.$fileExtension';
-      final path = fileName;
+      
+      await _supabase.storage.from(AppConstants.profilesBucket).upload(fileName, file);
+      final imageUrl = _supabase.storage.from(AppConstants.profilesBucket).getPublicUrl(fileName);
 
-      // 1. Upload to Supabase Storage
-      await _supabase.storage.from(AppConstants.profilesBucket).upload(path, file);
- 
-      // 2. Get Public URL
-      final imageUrl = _supabase.storage.from(AppConstants.profilesBucket).getPublicUrl(path);
+      await _supabase.from('users').update({'avatar_url': imageUrl}).eq('id', _userId);
 
-      // 3. Update User Table
-      await _supabase.from('users').update({
-        'avatar_url': imageUrl,
-      }).eq('id', _userId!);
-
-      // 4. Force refresh the global user state
       await _ref.read(authNotifierProvider.notifier).refreshUser();
       
-      // 5. Invalidate relevant providers to force UI refresh
       _ref.invalidate(studentProfileProvider);
       _ref.invalidate(tutorProfileProvider);
       _ref.invalidate(studentManagementProvider);
@@ -69,15 +57,9 @@ class ProfilePhotoNotifier extends StateNotifier<AsyncValue<String?>> {
 
     state = const AsyncValue.loading();
     try {
-      // 1. Set avatar_url to null in users table
-      await _supabase.from('users').update({
-        'avatar_url': null,
-      }).eq('id', uid);
+      await _supabase.from('users').update({'avatar_url': null}).eq('id', uid);
 
-      // 2. Force refresh states
-      if (uid == _userId) {
-        await _ref.read(authNotifierProvider.notifier).refreshUser();
-      }
+      if (uid == _userId) await _ref.read(authNotifierProvider.notifier).refreshUser();
       
       _ref.invalidate(studentProfileProvider);
       _ref.invalidate(tutorProfileProvider);
@@ -90,30 +72,20 @@ class ProfilePhotoNotifier extends StateNotifier<AsyncValue<String?>> {
     }
   }
 
-  // Admin/Tutor can use this to upload for ANOTHER user
   Future<void> uploadForUser(String targetUserId) async {
-    final picker = ImagePicker();
-    final XFile? image = await picker.pickImage(
-      source: ImageSource.gallery,
-      maxWidth: 512,
-      maxHeight: 512,
-      imageQuality: 80,
-    );
-    if (image == null) return;
+    final result = await FilePicker.platform.pickFiles(type: FileType.image, allowMultiple: false);
+    if (result == null || result.files.isEmpty) return;
 
     state = const AsyncValue.loading();
     try {
-      final file = File(image.path);
-      final fileExtension = image.path.split('.').last;
+      final file = File(result.files.single.path!);
+      final fileExtension = result.files.single.extension ?? 'jpg';
       final fileName = '$targetUserId.${DateTime.now().millisecondsSinceEpoch}.$fileExtension';
-      final path = fileName;
       
-      await _supabase.storage.from(AppConstants.profilesBucket).upload(path, file);
-      final imageUrl = _supabase.storage.from(AppConstants.profilesBucket).getPublicUrl(path);
+      await _supabase.storage.from(AppConstants.profilesBucket).upload(fileName, file);
+      final imageUrl = _supabase.storage.from(AppConstants.profilesBucket).getPublicUrl(fileName);
 
       await _supabase.from('users').update({'avatar_url': imageUrl}).eq('id', targetUserId);
-      
-      // Force refresh management lists
       _ref.invalidate(studentManagementProvider);
       _ref.invalidate(tutorManagementProvider);
       

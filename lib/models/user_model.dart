@@ -58,6 +58,12 @@ class UserModel {
   bool get isAdmin   => role == 'admin';
   bool get isTutor   => role == 'tutor';
   bool get isStudent => role == 'student';
+  bool get isStaff   => role == 'staff';
+
+  /// Managers are Super Admins OR Staff members with higher privileges
+  bool get isManager => 
+      isAdmin || 
+      (isStaff && (name.toLowerCase().contains('manager') || email.toLowerCase().startsWith('manager')));
 
   String get roleLabel =>
       role[0].toUpperCase() + role.substring(1); // "Admin" / "Tutor" / "Student"

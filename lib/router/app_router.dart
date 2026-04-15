@@ -12,17 +12,19 @@ import '../features/admin/screens/manage_staff_screen.dart';
 import '../features/admin/screens/manage_batches_screen.dart';
 import '../features/admin/screens/manage_announcements_screen.dart';
 import '../features/admin/screens/attendance_reports_screen.dart';
+import '../features/admin/screens/manage_tutors_screen.dart';
+import '../features/admin/screens/leads_screen.dart';
 
 import '../features/tutor/screens/tutor_dashboard.dart';
 import '../features/tutor/screens/tutor_profile_screen.dart';
 import '../features/staff/screens/staff_dashboard.dart';
-import '../features/admin/screens/tutor_attendance_report_screen.dart';
+import '../features/staff/screens/staff_profile_screen.dart';
+import '../features/admin/screens/staff_attendance_report_screen.dart';
 import '../features/common/screens/mark_attendance_screen.dart';
 import '../features/student/screens/student_dashboard.dart';
 import '../features/student/screens/student_profile_screen.dart';
 import '../features/library/screens/library_screen.dart';
 import '../features/admin/screens/content_library_screen.dart' as adminLib;
-import '../features/admin/screens/manage_tutors_screen.dart';
 import '../features/auth/providers/auth_provider.dart';
 
 class AppRoutes {
@@ -45,6 +47,8 @@ class AppRoutes {
   static const markAttendance = 'mark-attendance';
   static const tutorAttendance = 'tutor-reports';
   static const contentLib     = 'content';
+  static const manageTutors   = 'tutors';
+  static const leads          = 'leads';
 }
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -101,8 +105,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(path: AppRoutes.announcements, builder: (_, __) => const ManageAnnouncementsScreen()),
           GoRoute(path: AppRoutes.attendance, builder: (_, __) => const AttendanceReportsScreen()),
           GoRoute(path: AppRoutes.markAttendance, builder: (_, __) => const MarkAttendanceScreen()),
-          GoRoute(path: AppRoutes.tutorAttendance, builder: (_, __) => const TutorAttendanceReportScreen()),
+          GoRoute(path: AppRoutes.tutorAttendance, builder: (_, __) => const StaffAttendanceReportScreen()),
           GoRoute(path: AppRoutes.contentLib, builder: (_, __) => const adminLib.ContentLibraryScreen()),
+          GoRoute(path: AppRoutes.manageTutors, builder: (_, __) => const ManageTutorsScreen()),
+          GoRoute(path: AppRoutes.leads, builder: (_, __) => const LeadsScreen(readOnly: true)),
         ],
       ),
 
@@ -127,7 +133,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         routes: [
           GoRoute(path: AppRoutes.profile, builder: (_, __) => const StudentProfileScreen()),
           GoRoute(path: AppRoutes.announcements, builder: (_, __) => const ManageAnnouncementsScreen()),
-          GoRoute(path: AppRoutes.contentLib, builder: (_, __) => const adminLib.ContentLibraryScreen()),
+          GoRoute(path: AppRoutes.contentLib, builder: (_, __) => const ContentLibraryScreen()),
         ],
       ),
 
@@ -136,9 +142,16 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: AppRoutes.staff,
         builder: (_, __) => const StaffDashboard(),
         routes: [
+          GoRoute(path: AppRoutes.profile, builder: (_, __) => const StaffProfileScreen()),
           GoRoute(path: AppRoutes.announcements, builder: (_, __) => const ManageAnnouncementsScreen()),
           GoRoute(path: AppRoutes.manageStudents, builder: (_, __) => const ManageStudentsScreen()),
+          GoRoute(path: AppRoutes.manageStaff, builder: (_, __) => const ManageStaffScreen()),
+          GoRoute(path: AppRoutes.manageBatches, builder: (_, __) => const ManageBatchesScreen()),
+          GoRoute(path: AppRoutes.attendance, builder: (_, __) => const AttendanceReportsScreen()),
+          GoRoute(path: AppRoutes.markAttendance, builder: (_, __) => const MarkAttendanceScreen()),
+          GoRoute(path: AppRoutes.tutorAttendance, builder: (_, __) => const StaffAttendanceReportScreen()),
           GoRoute(path: AppRoutes.contentLib, builder: (_, __) => const adminLib.ContentLibraryScreen()),
+          GoRoute(path: AppRoutes.leads, builder: (_, __) => const LeadsScreen()),
         ],
       ),
     ],

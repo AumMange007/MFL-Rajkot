@@ -3,9 +3,9 @@ import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
   // Brand palette
-  static const _primary   = Color(0xFF4F46E5); // Indigo-600
+  static const _primary   = Color(0xFF0284C7); // Sky-Blue/Cyan
   static const _secondary = Color(0xFF0EA5E9); // Sky-500
-  static const _surface   = Color(0xFFF8F9FF); // near-white with blue tint
+  static const _surface   = Color(0xFFF0F6FF); // light cyan tint
   static const _card      = Colors.white;
   static const _ink       = Color(0xFF0F172A); // Slate-900
   static const _inkMuted  = Color(0xFF64748B); // Slate-500

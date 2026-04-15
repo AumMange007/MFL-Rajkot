@@ -23,6 +23,12 @@ dependencies:
   geolocator: ^14.0.2
   google_fonts: ^6.2.1
   url_launcher: ^6.3.2
+  share_plus: ^12.0.2
+  path_provider: ^2.1.5
+  path: ^1.9.1
+  dio: ^5.9.2
+  permission_handler: ^12.0.1
+  shared_preferences: ^2.5.5
 
 dev_dependencies:
   flutter_test:
@@ -41,7 +47,12 @@ flutter:
 
 flutter_launcher_icons:
   android: true
-  ios: true
+  ios: false
+  web:
+    generate: true
+    image_path: "assets/images/mfl_logo.png"
+    background_color: "#000000"
+    theme_color: "#000000"
   image_path: "assets/images/mfl_logo.png"
   adaptive_icon_background: "#000000"
   adaptive_icon_foreground: "assets/images/mfl_logo.png"

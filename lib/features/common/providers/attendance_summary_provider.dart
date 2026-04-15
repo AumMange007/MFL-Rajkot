@@ -1,5 +1,4 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../auth/providers/auth_provider.dart';
 
@@ -10,20 +9,37 @@ final attendanceSummaryProvider = FutureProvider<Map<String, int>>((ref) async {
 
   try {
     final isStudent = user.role == 'student';
-    final table = isStudent ? AppConstants.attendanceTable : AppConstants.staffAttendanceTable;
-    final idField = isStudent ? 'student_id' : 'user_id';
-
-    String targetId = user.id;
-    if (isStudent) {
-      final studentRes = await supabase.from('students').select('id').eq('user_id', user.id).maybeSingle();
-      if (studentRes == null) return {};
-      targetId = studentRes['id'];
-    }
-
-    final res = await supabase.from(table).select('status').eq(idField, targetId);
-    
     final stats = {'present': 0, 'absent': 0, 'late': 0, 'total': 0};
-    if (res != null) {
+
+    if (isStudent) {
+      // 1. Find all student record IDs for this user (they might have multiple if they moved batches)
+      final studentIdsRes = await supabase.from('students').select('id').eq('user_id', user.id);
+      final studentIds = (studentIdsRes as List?)?.map((e) => e['id'].toString()).toList() ?? [];
+
+      if (studentIds.isEmpty) return stats;
+
+      // 2. Query attendance for all these IDs
+      final res = await supabase
+          .from(AppConstants.attendanceTable)
+          .select('date, status')
+          .inFilter('student_id', studentIds);
+      
+      final uniqueResults = <String, String>{};
+      for (var row in (res as List)) {
+        final date = row['date']?.toString();
+        final status = row['status']?.toString().toLowerCase();
+        if (date != null && status != null) {
+          uniqueResults[date] = status;
+        }
+      }
+
+      for (var status in uniqueResults.values) {
+        if (stats.containsKey(status)) stats[status] = stats[status]! + 1;
+        stats['total'] = stats['total']! + 1;
+      }
+    } else {
+      // Staff attendance
+      final res = await supabase.from(AppConstants.staffAttendanceTable).select('date, status').eq('user_id', user.id);
       for (var row in (res as List)) {
         final status = row['status']?.toString().toLowerCase();
         if (status != null && stats.containsKey(status)) {
@@ -46,25 +62,35 @@ final todayAttendanceProvider = FutureProvider<String?>((ref) async {
 
   try {
     final isStudent = user.role == 'student';
-    final table = isStudent ? AppConstants.attendanceTable : AppConstants.staffAttendanceTable;
-    final idField = isStudent ? 'student_id' : 'user_id';
     final dateStr = DateTime.now().toIso8601String().split('T').first;
 
-    String targetId = user.id;
     if (isStudent) {
-      final studentRes = await supabase.from('students').select('id').eq('user_id', user.id).maybeSingle();
-      if (studentRes == null) return null;
-      targetId = studentRes['id'];
-    }
+      final studentIdsRes = await supabase.from('students').select('id').eq('user_id', user.id);
+      final studentIds = (studentIdsRes as List?)?.map((e) => e['id'].toString()).toList() ?? [];
+      if (studentIds.isEmpty) return null;
 
-    final res = await supabase
-        .from(table)
-        .select('status')
-        .eq(idField, targetId)
-        .eq('date', dateStr)
-        .maybeSingle();
-    
-    return res?['status']?.toString();
+      final resList = await supabase
+          .from(AppConstants.attendanceTable)
+          .select('status, created_at')
+          .inFilter('student_id', studentIds)
+          .eq('date', dateStr)
+          .order('created_at', ascending: false)
+          .limit(1);
+      
+      final res = (resList as List?)?.isNotEmpty == true ? (resList as List).first : null;
+      return res?['status']?.toString();
+    } else {
+      final resList = await supabase
+          .from(AppConstants.staffAttendanceTable)
+          .select('status, created_at')
+          .eq('user_id', user.id)
+          .eq('date', dateStr)
+          .order('created_at', ascending: false)
+          .limit(1);
+      
+      final res = (resList as List?)?.isNotEmpty == true ? (resList as List).first : null;
+      return res?['status']?.toString();
+    }
   } catch (e) {
     print('Today attendance error: $e');
     return null;
@@ -76,16 +102,39 @@ final weeklyAttendanceProvider = FutureProvider.family<Map<String, int>, String>
   try {
     final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7)).toIso8601String().split('T').first;
     
+    // Fetch unique attendance for the STUDENT'S USER across all batches
+    // We join with students to find other entries for the same user
+    final studentRes = await supabase.from('students').select('user_id').eq('id', studentId).maybeSingle();
+    final userId = studentRes?['user_id'];
+
+    if (userId == null) return {'present': 0, 'absent': 0, 'late': 0, 'total': 0};
+
+    // Fetch all student entries for this user to combine their history
+    final idsRes = await supabase.from('students').select('id').eq('user_id', userId);
+    final ids = (idsRes as List?)?.map((e) => e['id'].toString()).toList() ?? [];
+
+    if (ids.isEmpty) return {'present': 0, 'absent': 0, 'late': 0, 'total': 0};
+
     final res = await supabase
         .from(AppConstants.attendanceTable)
-        .select('status')
-        .eq('student_id', studentId)
+        .select('date, status')
+        .inFilter('student_id', ids)
         .gte('date', sevenDaysAgo);
 
     final stats = {'present': 0, 'absent': 0, 'late': 0, 'total': 0};
+    
+    // Use a date map to avoid double-counting if duplicates exist from previous batch moves
+    final dateStatusMap = <String, String>{};
     for (var row in (res as List)) {
+      final date = row['date']?.toString();
       final status = row['status']?.toString().toLowerCase();
-      if (status != null && stats.containsKey(status)) {
+      if (date != null && status != null) {
+        dateStatusMap[date] = status;
+      }
+    }
+
+    for (var status in dateStatusMap.values) {
+      if (stats.containsKey(status)) {
         stats[status] = stats[status]! + 1;
       }
       stats['total'] = stats['total']! + 1;
